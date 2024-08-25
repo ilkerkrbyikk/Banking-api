@@ -1,6 +1,8 @@
 package com.BankingApplication.service;
 
+import com.BankingApplication.config.JwtTokenProvider;
 import com.BankingApplication.dto.*;
+import com.BankingApplication.entity.Role;
 import com.BankingApplication.entity.User;
 import com.BankingApplication.repository.TransactionRepository;
 import com.BankingApplication.repository.UserRepository;
@@ -9,6 +11,10 @@ import com.BankingApplication.service.impl.TransactionService;
 import com.BankingApplication.service.impl.UserService;
 import com.BankingApplication.utils.AccountUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -21,6 +27,12 @@ public class UserServiceImpl implements UserService {
     private final TransactionService transactionService;
 
     private EmailService emailService;
+
+    private PasswordEncoder passwordEncoder;
+
+    private AuthenticationManager authenticationManager;
+
+    private JwtTokenProvider jwtTokenProvider;
 
 
     @Override
@@ -46,9 +58,11 @@ public class UserServiceImpl implements UserService {
                 .accountNumber(AccountUtils.generateAccountNumber())
                 .accountBalance(BigDecimal.ZERO) // * bakiyeye direkt 0 yazmak yerine bigdecimal zero vermek daha sağlıklı
                 .email(userRequest.getEmail())
+                .password(passwordEncoder.encode(userRequest.getPassword()))
                 .phoneNumber(userRequest.getPhoneNumber())
                 .alternativePhoneNumber(userRequest.getAlternativePhoneNumber())
                 .status("ACTIVE")
+                .role(Role.ROLE_USER)
                 .build();
 
         User createdUser = userRepository.save(user);
@@ -95,6 +109,23 @@ public class UserServiceImpl implements UserService {
                 .build();
     }
 
+    public BankResponse login(LoginDto loginDto){
+        Authentication authentication = null;
+        authentication = authenticationManager.
+                authenticate(new UsernamePasswordAuthenticationToken(loginDto.getEmail(), loginDto.getPassword()));
+
+        EmailDetails loginAlert = EmailDetails.builder()
+                .subject("You're logged in!")
+                .recipient(loginDto.getEmail())
+                .messageBody("You logged into your account. bla bla bla......")
+                .build();
+
+        return BankResponse.builder()
+                .responseMessage(null)
+                .responseCode("Login success.")
+                .build();
+
+    }
     @Override
     public String nameEnquiry(EnquiryRequest enquiryRequest) {
         boolean isAccountExist = userRepository.existsByAccountNumber(enquiryRequest.getAccountNumber());
